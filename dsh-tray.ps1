@@ -379,7 +379,21 @@ function Check-ChildAlive {
 function Show-Balloon([string]$title, [string]$msg, [string]$info = 'Info') {
     try { $notify.ShowBalloonTip(2600, $title, $msg, $info) } catch { }
 }
-function Open-Web { try { Start-Process $webUrl } catch { } }
+function Open-UrlSafe([string]$url, [string]$label = '链接') {
+    # 多种方式尝试打开 http 链接(应对"无法打开此 http 链接"/无默认浏览器)
+    $errs = @()
+    try { Start-Process $url; return $true } catch { $errs += ('Start-Process:' + $_.Exception.Message) }
+    try { Start-Process -FilePath (Join-Path $env:WINDIR 'explorer.exe') -ArgumentList $url; return $true } catch { $errs += ('explorer:' + $_.Exception.Message) }
+    try { Start-Process -FilePath 'rundll32.exe' -ArgumentList ('url.dll,FileProtocolHandler ' + $url); return $true } catch { $errs += ('rundll32:' + $_.Exception.Message) }
+    try { Start-Process -FilePath (Join-Path $env:WINDIR 'System32\cmd.exe') -ArgumentList ('/c start "" "' + $url + '"') -WindowStyle Hidden; return $true } catch { $errs += ('cmd:' + $_.Exception.Message) }
+    try { Set-Clipboard -Value $url } catch { }
+    Write-LogFile ('打开链接失败: ' + $url + ' | ' + ($errs -join ' ; '))
+    try {
+        [System.Windows.Forms.MessageBox]::Show(("无法自动打开" + $label + ", 地址已复制到剪贴板, 请手动粘贴到浏览器:`r`n`r`n" + $url), ('打开' + $label + '失败'), 'OK', 'Warning') | Out-Null
+    } catch { }
+    return $false
+}
+function Open-Web { Open-UrlSafe $webUrl '界面' | Out-Null }
 function Open-Log {
     if (Test-Path $logFile) { try { Start-Process $logFile } catch { } }
     else { Show-Balloon '大肥鱼' '日志还不存在。' 'Warning' }
@@ -470,12 +484,8 @@ function Open-RepoHome {
     $slug = Resolve-RepoSlug
     if (-not $slug) { Show-Balloon 'dsh-tray' '未配置更新源。请在 config.ini 填 repo=用户名/仓库名。' 'Warning'; return }
     $url = 'https://github.com/' + $slug
-    try {
-        Start-Process $url
-        Write-LogFile ('打开仓库主页: ' + $url)
-    } catch {
-        Show-Balloon 'dsh-tray' ('打开失败, 请手动访问: ' + $url) 'Warning'
-    }
+    Write-LogFile ('打开仓库主页: ' + $url)
+    Open-UrlSafe $url '仓库主页' | Out-Null
 }
 function Compare-AppVersion([string]$a, [string]$b) {
     try { return ([version]$a).CompareTo([version]$b) } catch { return 0 }
@@ -576,7 +586,7 @@ function Find-AuthUrl {
 }
 function Open-Auth {
     $u = Find-AuthUrl
-    if ($u) { try { Start-Process $u } catch { } }
+    if ($u) { Open-UrlSafe $u '鉴权网址' | Out-Null }
     else { Show-Balloon '大肥鱼' '暂未找到带 token 的网址(先启动 dsh 再点)。' 'Warning' }
 }
 function Start-EggRainbow {
