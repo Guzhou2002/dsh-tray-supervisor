@@ -1,47 +1,139 @@
-# dsh-autostart
+# dsh-autostart 🐳
 
-**DeepSeek Harness(dsh) 托盘守护外壳** —— 开机自动在后台把 dsh 跑起来(无黑窗)，右下角常驻托盘图标，可开界面 / 看日志 / 启停重启 / 开关开机自启。
+**给 DeepSeek Harness(dsh) 套一个"大肥鱼"托盘 —— 开机静默后台跑,右下角一点就开。**
+
+[![Release](https://img.shields.io/github/v/release/OWNER/dsh-autostart?color=4D6BFE&label=release)](../../releases)
+[![Stars](https://img.shields.io/github/stars/OWNER/dsh-autostart?color=4D6BFE)](../../stargazers)
+[![License](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6)](#)
 
 > 编写者：**孤舟蓑笠**　QQ：**578778930**
 
-## 特性
-- 无窗口常驻：托盘直接托管 dsh(node) 进程，不弹黑窗
-- 崩溃只提示、**不自动重启**（图标变红），可手动重启
-- 强制退出：多种方式确保 dsh 进程杀干净、不留后台
-- 鉴权网址：自动从日志解析 `?token=` 并可从菜单直接打开
-- 开机自启**可开关**（托盘菜单里随时切换）
-- XP 音效（关于页/彩蛋触发）
-- 托盘菜单含"关于 · 大肥鱼"（内有彩蛋）
+---
 
-## 安装（给使用者）
-1. **先解压整个压缩包**到任意文件夹（不要在压缩包里直接双击）
-2. 双击 `install.bat`，**每一步按提示选 Y / N**
-3. 看到"流程结束"即完成，右下角出现托盘图标
+## 它解决什么
 
-前置：Windows 10/11 + Node.js 22+（脚本会问你是否自动安装 `dsh`）
+`dsh web` 每次都要开终端、敲命令、盯着黑窗口?这个托盘外壳帮你:
 
-## 更新
-双击 `update.bat`（需 git）：自动 `git pull` → 同步到 `%USERPROFILE%\.dsh\plugins\dsh-autostart` → 重启托盘
+- **开机自动在后台把 dsh 跑起来**,全程**无黑窗**
+- **右下角一个托盘图标**,双击就打开界面,右键就是全部操作
+- **崩溃看得见**:dsh 意外退出时图标变红 + 气泡提示(**不偷偷自动重启**)
+- **强退杀得干净**:不留后台 node 进程占端口
+- **鉴权不用手敲**:自动从日志里揪出 `?token=...` 网址,菜单一点直接进
+- **带版本校验与一键更新**:发现新版弹气泡,菜单点一下用 git 拉取并自动重启
 
-## 卸载
-双击 `uninstall.bat`，每一步先确认：停托盘 / 关 dsh / 移除自启 / 删目录
+---
+
+## 截图
+
+> 建议放两张:`docs/tray-menu.png`(右键菜单)、`docs/about.png`(关于页)
+
+```markdown
+![托盘菜单](docs/tray-menu.png)
+![关于页](docs/about.png)
+```
+
+---
+
+## 快速开始
+
+1. 去 [Releases](../../releases) 下载 `dsh-autostart-*.zip`
+   (或 `git clone` 本仓库)
+2. **先解压整个压缩包**,再双击里面的 **`install.bat`**
+3. 按提示选 Y / N(每一步都会先问你),看到"流程结束"即完成
+4. 右下角出现托盘图标 → 双击打开 `http://127.0.0.1:3080`
+
+前置:Windows 10/11 + Node.js 22+(脚本会问你要不要自动装 `dsh`)
+
+---
+
+## 托盘菜单
+
+```
+打开界面                    双击托盘图标等效
+鉴权网址(带 token)          网页提示"需要鉴权"时点它
+dsh 控制 ▸
+   启动 dsh
+   停止 dsh
+   ──────────
+   重启 dsh
+打开日志
+关于 · 大肥鱼                版本 / 更新源 / 彩蛋按钮
+─────────────────
+版本 v1.3.0
+检查更新
+更新到 vX.Y.Z               仅发现新版时出现
+打开仓库主页                更新拉不动时可手动下载
+─────────────────
+开机自启: 已开启 / 已关闭     点一下切换
+退出(保留大肥鱼)             只退托盘, dsh 继续运行
+```
+
+---
+
+## 配置(`config.ini`,与脚本同目录)
+
+| 键 | 说明 |
+|---|---|
+| `node` | node 路径, 留空自动探测 |
+| `entry` | dsh 入口 `lib\bin.js` |
+| `webUrl` / `port` | 界面地址 / 端口 |
+| `logPath` | 日志路径(默认放在安装目录) |
+| `pollSec` | 存活轮询秒数(默认 5) |
+| `logMaxMB` | 日志轮转阈值(默认 5MB) |
+| `repo` | **更新源**:`用户名/仓库名`,留空=不检查更新 |
+| `updateCheck` | `on` / `off` 更新检查总开关 |
+| `updateHours` | 每多少小时检查一次(默认 6) |
+
+---
+
+## 更新 / 卸载
+
+- **更新**:托盘菜单 →`检查更新`→ 有新版点`更新到 vX.Y.Z`
+  (用 git:`git pull` 或 `git clone` 到同级 `dsh-autostart-src` 再同步 → 自动重启托盘)
+  也可手动双击 `update.bat`
+- **卸载**:双击 `uninstall.bat`,逐步确认:停托盘 / 关 dsh / 移除自启 / 删目录
+
+---
+
+## 常见问题
+
+| 现象 | 处理 |
+|---|---|
+| `没有运行 .vbs 的脚本引擎` | 系统禁用了 WSH。安装脚本会自动改用 **BAT 方式**启动;也可手动双击 `dsh-tray-hidden.bat` |
+| `无法打开此 http 链接` | 默认浏览器关联异常。程序会自动兜底(explorer / rundll32 / cmd start),全失败则**复制地址到剪贴板**并弹框 |
+| 没看到托盘图标 | 点托盘区 `^` 展开找 |
+| 被杀软拦截 | 把安装目录加入**信任/排除** |
+| dsh 崩了 | 图标变红 + 提示,**不会自动重启**;`dsh 控制 ▸ 启动 dsh` 手动拉起 |
+| 3080 被占用 | 托盘检测到已有 dsh 会**接管**,不会重复启动 |
+| 更新拉不动 | 菜单`打开仓库主页`手动下载 |
+
+---
 
 ## 仓库结构
+
 ```
-dsh-tray.ps1          托盘主程序(supervisor)
-dsh-tray-hidden.vbs   无窗口启动入口
+dsh-tray.ps1          托盘主程序(supervisor, 直接托管 dsh 进程)
+dsh-tray-hidden.vbs   无窗启动入口(需要 WSH)
+dsh-tray-hidden.bat   无窗启动入口(BAT 兜底, 不需要 WSH)
 dsh-logo.png          托盘图标
 sounds\               XP 音效(感叹号 / 关键性终止)
-install.bat           一键安装(每步确认)
+install.bat           一键安装(每步确认, 自动探测 WSH)
 uninstall.bat         一键卸载(每步确认)
-update.bat            一键更新(git pull + 同步)
-安装说明.md / .txt    详细说明(两种格式)
-.gitattributes        关键：固定 *.bat/*.ps1 为 CRLF，防止被改成 LF 后无法运行
+update.bat            一键更新(git pull + 同步 + 重启)
+VERSION               版本号(供无 Release 时校验)
+.gitattributes        关键: 固定 *.bat/*.ps1 为 CRLF
 ```
 
-## 注意
-- `config.ini` 与本机日志不入库（见 `.gitignore`）
-- 修改 `.bat` 请保持 **CRLF 换行 + GBK(cp936) 编码**，否则中文批处理会解析出错
+---
 
-## 许可
-自用/学习分享用。Windows XP 系统音效版权归微软所有。
+## 注意
+
+- `config.ini` 与本机日志**不入库**(见 `.gitignore`)
+- 改 `.bat` 请保持 **CRLF 换行 + GBK(cp936) 编码**,否则中文批处理会解析出错
+- 本工具只做操作系统层的事(后台/守护/日志/托盘);**不碰 agent 会话逻辑**
+
+## License
+
+[MIT](LICENSE) © 2026 孤舟蓑笠
+随包 Windows XP 音效版权归 Microsoft,仅学习/自用演示。
