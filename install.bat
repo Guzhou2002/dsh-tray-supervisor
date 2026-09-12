@@ -129,7 +129,6 @@ if defined WSH_OK (
 > "%STARTUP%\dsh-autostart.bat" echo @echo off
 REM ==== 更新源: 改成你自己的 GitHub 仓库 slug, 形如 用户名/dsh-autostart ====
 REM ==== 留空 = 关闭自动更新检查 ====
-set "REPO=Guzhou2002/dsh-autostart"
 >>"%STARTUP%\dsh-autostart.bat" echo start "" /min powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%TRAYDIR%\dsh-tray.ps1"
 echo   [OK] 已加入开机自启 -- 本机 WSH 不可用, 已改用 BAT 方式
 :skipauto
