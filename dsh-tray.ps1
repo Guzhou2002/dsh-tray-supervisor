@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 #  dsh-tray.ps1  ——  DSH 托盘外壳 supervisor (Phase 1 定稿版)
 #  OS 层职责:无窗口后台运行、持有并保活 dsh(node) 子进程、崩溃提示(不自动重启)、
 #  日志、托盘图标两态(正常/红故障)、菜单、气泡通知。
@@ -29,9 +29,12 @@ $default = @{
     entry     = 'C:\Users\1\AppData\Roaming\npm\node_modules\@deepseek-ai\dsh\lib\bin.js'
     webUrl    = 'http://127.0.0.1:3080'
     port      = 3080
-    logPath   = 'C:\Users\1\.dsh\dsh-autostart\dsh-web.log'
+    logPath   = 'C:\Users\1\.dsh\plugins\dsh-autostart\dsh-web.log'
     pollSec   = 5
     logMaxMB  = 5
+    repo      = ''                                  # GitHub 仓库 slug, 如 孤舟/dsh-autostart; 留空=关闭更新检查
+    updateCheck = 'on'                              # on / off
+    updateHours = 6                                 # 每多少小时检查一次
 }
 
 function Read-Config {
@@ -57,9 +60,18 @@ function Read-Config {
     $cfg['pollSec']  = [int]$cfg['pollSec']
     $cfg['port']     = [int]$cfg['port']
     $cfg['logMaxMB'] = [int]$cfg['logMaxMB']
+    $cfg['updateHours'] = [int]$cfg['updateHours']
     return $cfg
 }
 $script:cfg = Read-Config
+
+# ---- 版本 / 更新 ----
+$script:AppVersion = '1.3.0'
+$repoSlug     = $script:cfg['repo']
+$updateEnabled = ($script:cfg['updateCheck'] -eq 'on')
+$script:LatestInfo = $null
+$script:UpdateAvailable = $false
+$script:lastUpdCheck = (Get-Date).AddHours(-[math]::Max(1,$script:cfg['updateHours'])).AddSeconds(20)  # 启动约 20 秒后首次检查
 
 # 派生路径/启动参数
 $node     = $script:cfg['node']
@@ -421,6 +433,110 @@ function Toggle-Autostart {
     }
     Update-AutoLabel
 }
+function Resolve-RepoSlug {
+    # 优先用 config.ini 的 repo=; 否则从安装目录的 git remote 自动识别
+    if ($repoSlug) { return $repoSlug }
+    try {
+        $url = & git -C $script:CfgDir remote get-url origin 2>$null
+        if ($url -and ($url -match 'github\.com[:/]+(?<s>[^/]+/[^/\.]+)')) { return $Matches['s'] }
+    } catch { }
+    return $null
+}
+function Get-UpdateInfo {
+    # 查询最新版本; 返回 @{Version;Tag} 或 $null
+    $slug = Resolve-RepoSlug
+    if (-not $slug) { return $null }
+    $hdr = @{ 'User-Agent' = 'dsh-tray'; 'Accept' = 'application/vnd.github+json' }
+    try {
+        $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$slug/releases/latest" -Headers $hdr -TimeoutSec 6
+        if ($rel.tag_name) { return @{ Version = ([string]$rel.tag_name).TrimStart('v'); Tag = [string]$rel.tag_name } }
+    } catch { }
+    try {
+        $raw = (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$slug/main/VERSION" -UseBasicParsing -TimeoutSec 6).Content
+        $v = ([string]$raw).Trim().TrimStart('v')
+        if ($v) { return @{ Version = $v; Tag = "v$v" } }
+    } catch { }
+    return $null
+}
+function Compare-AppVersion([string]$a, [string]$b) {
+    try { return ([version]$a).CompareTo([version]$b) } catch { return 0 }
+}
+function Update-VersionLabel {
+    try {
+        if ($miVer) { $miVer.Text = '版本 v' + $script:AppVersion }
+        if ($miDoUpdate) { $miDoUpdate.Visible = [bool]$script:UpdateAvailable }
+    } catch { }
+}
+function Check-Update {
+    param([switch]$manual)
+    if (-not (Resolve-RepoSlug)) {
+        if ($manual) { Show-Balloon 'dsh-tray' '未配置更新源。请在 config.ini 填 repo=用户名/仓库名。' 'Warning' }
+        return
+    }
+    $info = Get-UpdateInfo
+    if (-not $info) {
+        if ($manual) { Show-Balloon 'dsh-tray' '检查更新失败(网络不通或仓库不可达)。' 'Warning' }
+        Write-LogFile '检查更新失败'
+        return
+    }
+    $script:LatestInfo = $info
+    $cmp = Compare-AppVersion $info.Version $script:AppVersion
+    Write-LogFile ("检查更新: 远端 v" + $info.Version + " / 本地 v" + $script:AppVersion)
+    if ($cmp -gt 0) {
+        $script:UpdateAvailable = $true
+        try { $miDoUpdate.Text = '更新到 v' + $info.Version } catch { }
+        Show-Balloon 'dsh-tray' ("发现新版本 v" + $info.Version + " (当前 v" + $script:AppVersion + ")。右键托盘可一键更新。") 'Info'
+    } else {
+        $script:UpdateAvailable = $false
+        if ($manual) { Show-Balloon 'dsh-tray' ("已是最新版 v" + $script:AppVersion + "。") 'Info' }
+    }
+    Update-VersionLabel
+}
+function Invoke-Update {
+    # 用 git 更新: 安装目录本身是仓库就 pull; 否则 clone 到同级 dsh-autostart-src 再同步文件
+    $slug = Resolve-RepoSlug
+    if (-not $slug) { Show-Balloon 'dsh-tray' '未配置更新源。请在 config.ini 填 repo=用户名/仓库名。' 'Warning'; return }
+    $gitExe = (Get-Command git -ErrorAction SilentlyContinue).Source
+    if (-not $gitExe) { Show-Balloon 'dsh-tray' '没检测到 git, 无法自动更新。请先安装 Git for Windows。' 'Warning'; return }
+    $ans = [System.Windows.Forms.MessageBox]::Show(('将用 git 拉取 ' + $slug + ' 的最新版并重启托盘, 继续?'), '更新 dsh-tray', 'OKCancel', 'Question')
+    if ($ans -ne [System.Windows.Forms.DialogResult]::OK) { return }
+    $selfRepo = Test-Path (Join-Path $script:CfgDir '.git')
+    $work = Join-Path (Split-Path -Parent $script:CfgDir) 'dsh-autostart-src'
+    try {
+        if ($selfRepo) {
+            Write-LogFile 'git pull (安装目录本身即仓库)'
+            $out = & $gitExe -C $script:CfgDir pull --ff-only 2>&1 | Out-String
+        } else {
+            if (Test-Path (Join-Path $work '.git')) {
+                Write-LogFile ('git pull ' + $work)
+                $out = & $gitExe -C $work pull --ff-only 2>&1 | Out-String
+            } else {
+                Write-LogFile ('git clone -> ' + $work)
+                $out = & $gitExe clone --depth 1 ("https://github.com/" + $slug + '.git') $work 2>&1 | Out-String
+            }
+            if (-not (Test-Path (Join-Path $work 'dsh-tray.ps1'))) { throw ('拉取结果里没有 dsh-tray.ps1: ' + $out) }
+            foreach ($f in 'dsh-tray.ps1','dsh-tray-hidden.vbs','dsh-tray-hidden.bat','install.bat','uninstall.bat','update.bat','dsh-logo.png') {
+                if (Test-Path (Join-Path $work $f)) { Copy-Item (Join-Path $work $f) (Join-Path $script:CfgDir $f) -Force }
+            }
+            if (Test-Path (Join-Path $work 'sounds')) {
+                if (-not (Test-Path (Join-Path $script:CfgDir 'sounds'))) { New-Item -ItemType Directory -Force -Path (Join-Path $script:CfgDir 'sounds') | Out-Null }
+                Copy-Item (Join-Path $work 'sounds\*.wav') (Join-Path $script:CfgDir 'sounds') -Force -ErrorAction SilentlyContinue
+            }
+        }
+        Write-LogFile '更新完成, 重启托盘'
+        Show-Balloon 'dsh-tray' '已拉取最新版, 正在重启托盘...' 'Info'
+        Start-Sleep -Milliseconds 900
+        $vbs = Join-Path $script:CfgDir 'dsh-tray-hidden.vbs'
+        if (Test-Path $vbs) { Start-Process -FilePath "$env:WINDIR\System32\wscript.exe" -ArgumentList "`"$vbs`"" }
+        else { Start-Process -FilePath (Join-Path $script:CfgDir 'dsh-tray-hidden.bat') }
+        $script:stopRequested = $true
+        try { $notify.Visible = $false } catch { }
+        [System.Windows.Forms.Application]::ExitThread()
+    } catch {
+        Write-LogFile ('更新失败: ' + $_.Exception.Message)
+        Show-Balloon 'dsh-tray' ('更新失败: ' + $_.Exception.Message) 'Error'
+    }
+}
 function Find-AuthUrl {
     # 从日志里解析 dsh 打印的鉴权网址 http://127.0.0.1:3080/?token=...
     try {
@@ -511,7 +627,7 @@ function Show-About {
     $script:aboutTitle = $title
 
     $ver = New-Object System.Windows.Forms.Label
-    $ver.Text = 'v1.2 · DeepSeek Harness 托盘守护'
+    $ver.Text = 'v' + $script:AppVersion + ' · DeepSeek Harness 托盘守护'
     $ver.Location = New-Object System.Drawing.Point(0, 120)
     $ver.Size = New-Object System.Drawing.Size(370, 20)
     $ver.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
@@ -638,6 +754,11 @@ $miLog    = New-Object System.Windows.Forms.ToolStripMenuItem('打开日志')
 $miAbout  = New-Object System.Windows.Forms.ToolStripMenuItem('关于 · 大肥鱼')
 $miQuit   = New-Object System.Windows.Forms.ToolStripMenuItem('退出(保留大肥鱼)')
 $miAuto   = New-Object System.Windows.Forms.ToolStripMenuItem('开机自启: ?')
+$miVer    = New-Object System.Windows.Forms.ToolStripMenuItem('版本 v' + $script:AppVersion)
+$miVer.Enabled = $false
+$miCheck  = New-Object System.Windows.Forms.ToolStripMenuItem('检查更新')
+$miDoUpdate = New-Object System.Windows.Forms.ToolStripMenuItem('更新到新版本')
+$miDoUpdate.Visible = $false
 
 $miOpen.Add_Click({ Open-Web })
 $miAuth.Add_Click({ Open-Auth })
@@ -647,6 +768,8 @@ $miRestart.Add_Click({ Restart-ChildProcess })
 $miLog.Add_Click({ Open-Log })
 $miAbout.Add_Click({ Show-About })
 $miAuto.Add_Click({ Toggle-Autostart })
+$miCheck.Add_Click({ Check-Update -manual })
+$miDoUpdate.Add_Click({ Invoke-Update })
 $miQuit.Add_Click({ Show-ExitAll })
 
 $menu.Items.Add($miOpen) | Out-Null
@@ -655,17 +778,31 @@ $menu.Items.Add($miCtl) | Out-Null
 $menu.Items.Add($miLog) | Out-Null
 $menu.Items.Add($miAbout) | Out-Null
 $menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
+$menu.Items.Add($miVer) | Out-Null
+$menu.Items.Add($miCheck) | Out-Null
+$menu.Items.Add($miDoUpdate) | Out-Null
+$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
 $menu.Items.Add($miAuto) | Out-Null
 $menu.Items.Add($miQuit) | Out-Null
 $notify.ContextMenuStrip = $menu
-# 每次打开菜单时刷新"开机自启"文字
-$menu.add_Opening({ Update-AutoLabel })
+# 每次打开菜单时刷新"开机自启 / 版本"文字
+$menu.add_Opening({ Update-AutoLabel; Update-VersionLabel })
 Update-AutoLabel
+Update-VersionLabel
 
 # 每 pollMs 轮询子进程存活并刷新文字
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = $pollMs
-$timer.add_Tick({ Check-ChildAlive; Update-StateText })
+$timer.add_Tick({
+    Check-ChildAlive
+    Update-StateText
+    if ($updateEnabled -and (Resolve-RepoSlug)) {
+        if (((Get-Date) - $script:lastUpdCheck).TotalHours -ge $script:cfg['updateHours']) {
+            $script:lastUpdCheck = Get-Date
+            Check-Update
+        }
+    }
+})
 $timer.Start()
 
 try {
