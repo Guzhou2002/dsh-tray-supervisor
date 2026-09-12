@@ -23,7 +23,7 @@ DeepSeek Harness (dsh) tray supervisor for Windows — silent autostart, no cons
 ## 3) 网站(Website)
 可留空;想填就填 Release 页,方便群友直接下:
 ```
-https://github.com/Guzhou2002/dsh-autostart/releases/latest
+https://github.com/Guzhou2002/dsh-tray-supervisor/releases/latest
 ```
 
 ## 4) 主题标签(Topics)

@@ -1,9 +1,9 @@
-# dsh-autostart 🐳
+# dsh-tray-supervisor 🐳
 
 **给 DeepSeek Harness(dsh) 套一个"大肥鱼"托盘 —— 开机静默后台跑,右下角一点就开。**
 
-[![Release](https://img.shields.io/github/v/release/Guzhou2002/dsh-autostart?color=4D6BFE&label=release)](../../releases)
-[![Stars](https://img.shields.io/github/stars/Guzhou2002/dsh-autostart?color=4D6BFE)](../../stargazers)
+[![Release](https://img.shields.io/github/v/release/Guzhou2002/dsh-tray-supervisor?color=4D6BFE&label=release)](../../releases)
+[![Stars](https://img.shields.io/github/stars/Guzhou2002/dsh-tray-supervisor?color=4D6BFE)](../../stargazers)
 [![License](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6)](#)
 

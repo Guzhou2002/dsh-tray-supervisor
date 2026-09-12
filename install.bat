@@ -1,7 +1,7 @@
 @echo off
 REM ==== 更新源: 改成你自己的 GitHub 仓库 slug, 形如 用户名/dsh-autostart ====
 REM ==== 留空 = 关闭自动更新检查 ====
-set "REPO=Guzhou2002/dsh-autostart"
+set "REPO=Guzhou2002/dsh-tray-supervisor"
 setlocal EnableExtensions
 title dsh-autostart 一键安装
 echo ==================================================
