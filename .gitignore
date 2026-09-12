@@ -1,0 +1,4 @@
+config.ini
+dsh-web.log*
+*.bak
+dist/
