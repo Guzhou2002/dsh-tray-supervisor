@@ -1,6 +1,6 @@
 # dsh-autostart 🐳
 
-**给 DeepSeek Harness(dsh) 套一个"大肥鱼"托盘 —— 开机静默后台跑,右下角一点就开。**
+**给 DeepSeek Harness(dsh) 套一个"大肥鱼"右下角托盘。**
 
 [![Release](https://img.shields.io/github/v/release/Guzhou2002/dsh-autostart?color=4D6BFE&label=release)](../../releases)
 [![Stars](https://img.shields.io/github/stars/Guzhou2002/dsh-autostart?color=4D6BFE)](../../stargazers)
@@ -13,11 +13,11 @@
 
 ## 它解决什么
 
-`dsh web` 每次都要开终端、敲命令、盯着黑窗口?这个托盘外壳帮你:
+`Deepseek-harness web` 每次都要开终端、敲命令、不敢关闭黑窗口?这个托盘外壳帮你:
 
-- **开机自动在后台把 dsh 跑起来**,全程**无黑窗**
+- **开机自动在后台把 dsh 跑起来**,全程**无黑窗命令行窗口**
 - **右下角一个托盘图标**,双击就打开界面,右键就是全部操作
-- **崩溃看得见**:dsh 意外退出时图标变红 + 气泡提示(**不偷偷自动重启**)
+- **崩溃看得见**:dsh 意外退出时图标变红 + 气泡提示
 - **强退杀得干净**:不留后台 node 进程占端口
 - **鉴权不用手敲**:自动从日志里揪出 `?token=...` 网址,菜单一点直接进
 - **带版本校验与一键更新**:发现新版弹气泡,菜单点一下用 git 拉取并自动重启
