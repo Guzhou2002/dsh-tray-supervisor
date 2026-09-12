@@ -587,8 +587,9 @@ function Show-About {
     $f.Dispose()
 }
 function Show-ExitAll {
-    Write-LogFile '强退:退出托盘并关闭 dsh'
-    Force-KillDsh
+    # 退出托盘(保留 dsh 继续运行)
+    Write-LogFile '退出托盘(保留 dsh 运行)'
+    $script:stopRequested = $true
     try { $timer.Stop() } catch { }
     try { $notify.Visible = $false } catch { }
     try { $notify.Icon.Dispose() } catch { }
@@ -615,7 +616,7 @@ $miCtl.DropDownItems.Add((New-Object System.Windows.Forms.ToolStripSeparator)) |
 $miCtl.DropDownItems.Add($miRestart) | Out-Null
 $miLog    = New-Object System.Windows.Forms.ToolStripMenuItem('打开日志')
 $miAbout  = New-Object System.Windows.Forms.ToolStripMenuItem('关于 · 大肥鱼')
-$miQuit   = New-Object System.Windows.Forms.ToolStripMenuItem('退出(强制关闭 dsh)')
+$miQuit   = New-Object System.Windows.Forms.ToolStripMenuItem('退出(保留大肥鱼)')
 $miAuto   = New-Object System.Windows.Forms.ToolStripMenuItem('开机自启: ?')
 
 $miOpen.Add_Click({ Open-Web })
