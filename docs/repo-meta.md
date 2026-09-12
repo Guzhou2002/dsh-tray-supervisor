@@ -1,6 +1,6 @@
 # GitHub 仓库资料填写模板(照抄即可)
 
-把 `OWNER` 换成你的 GitHub 用户名。
+把 `Guzhou2002` 换成你的 GitHub 用户名。
 
 ---
 
@@ -23,7 +23,7 @@ DeepSeek Harness (dsh) tray supervisor for Windows — silent autostart, no cons
 ## 3) 网站(Website)
 可留空;想填就填 Release 页,方便群友直接下:
 ```
-https://github.com/OWNER/dsh-autostart/releases/latest
+https://github.com/Guzhou2002/dsh-autostart/releases/latest
 ```
 
 ## 4) 主题标签(Topics)
