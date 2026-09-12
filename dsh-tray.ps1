@@ -443,20 +443,39 @@ function Resolve-RepoSlug {
     return $null
 }
 function Get-UpdateInfo {
-    # 查询最新版本; 返回 @{Version;Tag} 或 $null
+    # 查询最新版本; 返回 @{Version;Tag} 或 $null。带重试(网络抖动 / GitHub 打不开时)
     $slug = Resolve-RepoSlug
     if (-not $slug) { return $null }
     $hdr = @{ 'User-Agent' = 'dsh-tray'; 'Accept' = 'application/vnd.github+json' }
-    try {
-        $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$slug/releases/latest" -Headers $hdr -TimeoutSec 6
-        if ($rel.tag_name) { return @{ Version = ([string]$rel.tag_name).TrimStart('v'); Tag = [string]$rel.tag_name } }
-    } catch { }
-    try {
-        $raw = (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$slug/main/VERSION" -UseBasicParsing -TimeoutSec 6).Content
-        $v = ([string]$raw).Trim().TrimStart('v')
-        if ($v) { return @{ Version = $v; Tag = "v$v" } }
-    } catch { }
+    for ($try = 1; $try -le 3; $try++) {
+        try {
+            $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$slug/releases/latest" -Headers $hdr -TimeoutSec 6
+            if ($rel.tag_name) { return @{ Version = ([string]$rel.tag_name).TrimStart('v'); Tag = [string]$rel.tag_name } }
+        } catch {
+            Write-LogFile ('release 查询失败(第' + $try + '次): ' + $_.Exception.Message)
+        }
+        try {
+            $raw = (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$slug/main/VERSION" -UseBasicParsing -TimeoutSec 6).Content
+            $v = ([string]$raw).Trim().TrimStart('v')
+            if ($v) { return @{ Version = $v; Tag = "v$v" } }
+        } catch {
+            Write-LogFile ('VERSION 查询失败(第' + $try + '次): ' + $_.Exception.Message)
+        }
+        if ($try -lt 3) { Start-Sleep -Milliseconds 1200 }
+    }
     return $null
+}
+function Open-RepoHome {
+    # 打开仓库主页(更新拉不动时, 可手动去页面下载)
+    $slug = Resolve-RepoSlug
+    if (-not $slug) { Show-Balloon 'dsh-tray' '未配置更新源。请在 config.ini 填 repo=用户名/仓库名。' 'Warning'; return }
+    $url = 'https://github.com/' + $slug
+    try {
+        Start-Process $url
+        Write-LogFile ('打开仓库主页: ' + $url)
+    } catch {
+        Show-Balloon 'dsh-tray' ('打开失败, 请手动访问: ' + $url) 'Warning'
+    }
 }
 function Compare-AppVersion([string]$a, [string]$b) {
     try { return ([version]$a).CompareTo([version]$b) } catch { return 0 }
@@ -644,10 +663,12 @@ function Show-About {
     $f.Controls.Add($author)
 
     $body = New-Object System.Windows.Forms.Label
+    $slugNow = Resolve-RepoSlug
     $bodyLines = @(
         '· 托盘直接托管 dsh(node) 进程',
         ('· 崩溃只提示、不自动重启 · 轮询 ' + $script:cfg['pollSec'] + 's'),
         '· 菜单可打开 鉴权网址/日志',
+        ('· 更新源: ' + $(if ($slugNow) { $slugNow } else { '未配置 —— 见 config.ini 的 repo=' })),
         ('· 日志: ' + $logFile)
     )
     $body.Text = ($bodyLines -join "`n")
@@ -659,12 +680,30 @@ function Show-About {
     # 可点开的链接
     $lnk = New-Object System.Windows.Forms.LinkLabel
     $lnk.Text = '打开 DeepSeek Harness 界面'
-    $lnk.Location = New-Object System.Drawing.Point(95, 288)
-    $lnk.Size = New-Object System.Drawing.Size(180, 22)
+    $lnk.Location = New-Object System.Drawing.Point(85, 274)
+    $lnk.Size = New-Object System.Drawing.Size(200, 20)
     $lnk.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
     $lnk.LinkBehavior = [System.Windows.Forms.LinkBehavior]::AlwaysUnderline
     $lnk.add_LinkClicked({ Open-Web })
     $f.Controls.Add($lnk)
+
+    $lnkRepo = New-Object System.Windows.Forms.LinkLabel
+    $lnkRepo.Text = '打开仓库主页(手动下载/看更新)'
+    $lnkRepo.Location = New-Object System.Drawing.Point(85, 296)
+    $lnkRepo.Size = New-Object System.Drawing.Size(200, 20)
+    $lnkRepo.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $lnkRepo.LinkBehavior = [System.Windows.Forms.LinkBehavior]::AlwaysUnderline
+    $lnkRepo.add_LinkClicked({ Open-RepoHome })
+    $f.Controls.Add($lnkRepo)
+
+    $lnkChk = New-Object System.Windows.Forms.LinkLabel
+    $lnkChk.Text = '检查更新'
+    $lnkChk.Location = New-Object System.Drawing.Point(85, 318)
+    $lnkChk.Size = New-Object System.Drawing.Size(200, 20)
+    $lnkChk.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $lnkChk.LinkBehavior = [System.Windows.Forms.LinkBehavior]::AlwaysUnderline
+    $lnkChk.add_LinkClicked({ Check-Update -manual })
+    $f.Controls.Add($lnkChk)
 
     # 底部三按钮:千万别点 / 鱼生彩蛋 / 关闭
     $btnDont = New-Object System.Windows.Forms.Button
