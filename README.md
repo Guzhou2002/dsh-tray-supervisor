@@ -37,7 +37,7 @@
 
 ## 快速开始
 
-1. 去 [Releases](../../releases) 下载 `dsh-autostart-*.zip`
+1. 去 [Releases](../../releases) 下载 `dsh-tray-supervisor-*.zip`
    (或 `git clone` 本仓库)
 2. **先解压整个压缩包**,再双击里面的 **`install.bat`**
 3. 按提示选 Y / N(每一步都会先问你),看到"流程结束"即完成
@@ -90,7 +90,7 @@ dsh 控制 ▸
 ## 更新 / 卸载
 
 - **更新**:托盘菜单 →`检查更新`→ 有新版点`更新到 vX.Y.Z`
-  (用 git:`git pull` 或 `git clone` 到同级 `dsh-autostart-src` 再同步 → 自动重启托盘)
+  (用 git:`git pull` 或 `git clone` 到同级 `dsh-tray-supervisor-src` 再同步 → 自动重启托盘)
   也可手动双击 `update.bat`
 - **卸载**:双击 `uninstall.bat`,逐步确认:停托盘 / 关 dsh / 移除自启 / 删目录
 

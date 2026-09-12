@@ -6,7 +6,7 @@
 
 ## 1) 仓库名(Repository name)
 ```
-dsh-autostart
+dsh-tray-supervisor
 ```
 
 ## 2) 简介(Description,填 What's this?)
@@ -60,12 +60,12 @@ gui-automation
 
 **说明正文(可直接粘):**
 ```markdown
-## 🐳 dsh-autostart v1.3.0
+## 🐳 dsh-tray-supervisor v1.3.0
 
 给 DeepSeek Harness 的托盘守护外壳,**下载即用**。
 
 ### 怎么用
-1. 下载本页的 `dsh-autostart-v1.3.0.zip`
+1. 下载本页的 `dsh-tray-supervisor-v1.3.0.zip`
 2. **先完整解压**,再双击 `install.bat`(每一步都会问你)
 3. 右下角出现托盘图标即完成
 
@@ -84,12 +84,12 @@ Windows 10/11 · Node.js 22+(脚本可自动安装 dsh)
 > 编写者:孤舟蓑笠 · QQ 578778930
 ```
 
-**附件**:上传 `dsh-autostart-自启动+托盘.zip`(即打包好的那个 zip,建议改名成 `dsh-autostart-v1.3.0.zip`)
+**附件**:上传 `dsh-tray-supervisor-自启动+托盘.zip`(即打包好的那个 zip,建议改名成 `dsh-tray-supervisor-v1.3.0.zip`)
 
 ---
 
 ## 7) 社交预览图(Settings → Social preview)
-上传一张图(建议 1280×640):托盘图标 + 菜单截图 + 标题 `dsh-autostart`。
+上传一张图(建议 1280×640):托盘图标 + 菜单截图 + 标题 `dsh-tray-supervisor`。
 
 ## 8) 建议放进 README 的截图
 | 文件 | 内容 |
