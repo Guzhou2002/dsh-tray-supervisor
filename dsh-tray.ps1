@@ -1,4 +1,4 @@
-﻿# =============================================================================
+# =============================================================================
 #  dsh-tray.ps1  ——  DSH 托盘外壳 supervisor (Phase 1 定稿版)
 #  OS 层职责:无窗口后台运行、持有并保活 dsh(node) 子进程、崩溃提示(不自动重启)、
 #  日志、托盘图标两态(正常/红故障)、菜单、气泡通知。
@@ -373,7 +373,19 @@ function Open-Log {
     else { Show-Balloon '大肥鱼' '日志还不存在。' 'Warning' }
 }
 function Test-AutostartEnabled {
-    return (Test-Path (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup\dsh-autostart.vbs'))
+    $d = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'
+    return ((Test-Path (Join-Path $d 'dsh-autostart.vbs')) -or (Test-Path (Join-Path $d 'dsh-autostart.bat')))
+}
+function Test-WshAvailable {
+    # 检测 .vbs 是否有脚本引擎(WSH 被禁用/无关联时返回 False)
+    try {
+        $s = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows Script Host\Settings' -ErrorAction SilentlyContinue
+        if ($s -and $s.Enabled -eq 0) { return $false }
+        $k = Get-Item 'Registry::HKEY_CLASSES_ROOT\.vbs' -ErrorAction SilentlyContinue
+        if (-not $k) { return $false }
+        if (-not $k.GetValue('')) { return $false }
+        return (Test-Path (Join-Path $env:WINDIR 'System32\wscript.exe'))
+    } catch { return $false }
 }
 function Update-AutoLabel {
     try {
@@ -383,18 +395,26 @@ function Update-AutoLabel {
     } catch { }
 }
 function Toggle-Autostart {
-    # 在"启动"文件夹里创建/删除自启项 —— 随时可开关
+    # 在"启动"文件夹里创建/删除自启项; 无 WSH 时自动改用 .bat 方式
     $dir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'
-    $lnk = Join-Path $dir 'dsh-autostart.vbs'
-    $vbs = Join-Path $script:CfgDir 'dsh-tray-hidden.vbs'
+    $vbsEntry = Join-Path $dir 'dsh-autostart.vbs'
+    $batEntry = Join-Path $dir 'dsh-autostart.bat'
+    $hiddenVbs = Join-Path $script:CfgDir 'dsh-tray-hidden.vbs'
+    $trayPs1 = Join-Path $script:CfgDir 'dsh-tray.ps1'
     try {
-        if (Test-Path $lnk) {
-            Remove-Item $lnk -Force
+        if ((Test-Path $vbsEntry) -or (Test-Path $batEntry)) {
+            Remove-Item $vbsEntry, $batEntry -Force -ErrorAction SilentlyContinue
             Show-Balloon 'dsh-tray' '已关闭开机自启(下次开机不会自动运行)。' 'Info'
         } else {
-            $content = 'set sh = CreateObject("WScript.Shell")' + "`r`n" + 'sh.Run "' + $vbs + '",0,False' + "`r`n"
-            [System.IO.File]::WriteAllText($lnk, $content, [System.Text.Encoding]::ASCII)
-            Show-Balloon 'dsh-tray' '已开启开机自启。' 'Info'
+            if (Test-WshAvailable) {
+                $content = 'set sh = CreateObject("WScript.Shell")' + "`r`n" + 'sh.Run "' + $hiddenVbs + '",0,False' + "`r`n"
+                [System.IO.File]::WriteAllText($vbsEntry, $content, [System.Text.Encoding]::ASCII)
+                Show-Balloon 'dsh-tray' '已开启开机自启(无窗 VBS)。' 'Info'
+            } else {
+                $content = '@echo off' + "`r`n" + 'start "" /min powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $trayPs1 + '"' + "`r`n"
+                [System.IO.File]::WriteAllText($batEntry, $content, [System.Text.Encoding]::ASCII)
+                Show-Balloon 'dsh-tray' '已开启开机自启(本机 WSH 不可用, 已改用 BAT 方式)。' 'Info'
+            }
         }
     } catch {
         Show-Balloon 'dsh-tray' ('设置失败: ' + $_.Exception.Message) 'Warning'

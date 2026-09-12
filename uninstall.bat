@@ -49,6 +49,7 @@ if errorlevel 2 (
   goto :skipauto
 )
 if exist "%STARTUP%\dsh-autostart.vbs" del /f /q "%STARTUP%\dsh-autostart.vbs"
+if exist "%STARTUP%\dsh-autostart.bat" del /f /q "%STARTUP%\dsh-autostart.bat"
 echo   已移除开机自启。
 :skipauto
 echo.

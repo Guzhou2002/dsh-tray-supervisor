@@ -6,7 +6,7 @@ echo   dsh-autostart 一键安装 —— DeepSeek Harness 托盘守护
 echo ==================================================
 echo   本脚本会:
 echo     1. 检查 Node.js / DeepSeek Harness
-echo     2. 复制文件到  %%USERPROFILE%%\.dsh\plugins\dsh-autostart
+echo     2. 复制文件到  %USERPROFILE%\.dsh\plugins\dsh-autostart
 echo     3. 生成配置 config.ini
 echo     4. 可选: 设置开机自启
 echo     5. 可选: 立即启动托盘
@@ -75,6 +75,7 @@ if not exist "%TRAYDIR%" mkdir "%TRAYDIR%" >nul 2>&1
 if not exist "%TRAYDIR%\sounds" mkdir "%TRAYDIR%\sounds" >nul 2>&1
 copy /Y "%~dp0dsh-tray.ps1"        "%TRAYDIR%\dsh-tray.ps1"        >nul
 copy /Y "%~dp0dsh-tray-hidden.vbs" "%TRAYDIR%\dsh-tray-hidden.vbs" >nul
+if exist "%~dp0dsh-tray-hidden.bat" copy /Y "%~dp0dsh-tray-hidden.bat" "%TRAYDIR%\dsh-tray-hidden.bat" >nul
 if exist "%~dp0dsh-logo.png" copy /Y "%~dp0dsh-logo.png" "%TRAYDIR%\dsh-logo.png" >nul
 if exist "%~dp0sounds\*.wav" copy /Y "%~dp0sounds\*.wav" "%TRAYDIR%\sounds\" >nul
 echo   [OK] 文件已复制
@@ -104,20 +105,34 @@ echo.
 
 echo [5/5] 开机自启【可选: 不想要就选 N; 装好后也能在托盘菜单里随时开关】
 set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
+set "WSH_OK="
+set "WSH_DISABLED="
+reg query "HKLM\SOFTWARE\Microsoft\Windows Script Host\Settings" /v Enabled 2>nul | find /i "0x0" >nul && set "WSH_DISABLED=1"
+if not defined WSH_DISABLED reg query "HKCR\.vbs" >nul 2>&1 && set "WSH_OK=1"
 choice /c yn /n /m "  是否设置开机自启? [Y/N] "
 if errorlevel 2 (
   echo   已跳过自启。
   goto :skipauto
 )
-> "%STARTUP%\dsh-autostart.vbs" echo set sh = CreateObject("WScript.Shell")
->>"%STARTUP%\dsh-autostart.vbs" echo sh.Run "%TRAYDIR%\dsh-tray-hidden.vbs",0,False
-echo   [OK] 已加入开机自启
+if defined WSH_OK (
+  > "%STARTUP%\dsh-autostart.vbs" echo set sh = CreateObject("WScript.Shell")
+  >>"%STARTUP%\dsh-autostart.vbs" echo sh.Run "%TRAYDIR%\dsh-tray-hidden.vbs",0,False
+  echo   [OK] 已加入开机自启 -- 无窗 VBS 方式
+  goto :skipauto
+)
+> "%STARTUP%\dsh-autostart.bat" echo @echo off
+>>"%STARTUP%\dsh-autostart.bat" echo start "" /min powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%TRAYDIR%\dsh-tray.ps1"
+echo   [OK] 已加入开机自启 -- 本机 WSH 不可用, 已改用 BAT 方式
 :skipauto
 echo.
 
 choice /c yn /n /m "是否现在启动托盘? [Y/N] "
 if errorlevel 2 goto :done
-start "" wscript.exe "%TRAYDIR%\dsh-tray-hidden.vbs"
+if defined WSH_OK (
+  start "" wscript.exe "%TRAYDIR%\dsh-tray-hidden.vbs"
+) else (
+  start "" /min powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%TRAYDIR%\dsh-tray.ps1"
+)
 echo   已启动, 请看右下角托盘图标。
 :done
 echo.
